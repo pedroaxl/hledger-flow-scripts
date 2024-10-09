@@ -4,6 +4,7 @@ require 'yaml'
 require 'rainbow'
 
 CONFIG = YAML.load_file('config.yml')
+COLORS = [:red, :green, :yellow, :blue, :magenta, :cyan, :white] # removed :black
 
 def cleanup_description(desc)
     if /(\d{1,2})\/\d{1,2}$/.match? desc
@@ -53,6 +54,19 @@ def parse_csv_line(l)
     {"index": l[0], "date": l[1], "code":l[2], "description":l[3], "account": l[4], "amount":l[5] }
 end
 
+def colorize_description(description, i)
+    Rainbow(description).bg(i % 2 == 0 ? :blue : :cyan)
+end
+
+def colorize_account(account,high_level_category_colors)
+    puts high_level_category_colors[account.split(":")[0..1].join(":")].to_sym
+    Rainbow(account).bg(high_level_category_colors[account.split(":")[0..1].join(":")])
+end
+
+def colorize_amount amount
+    Rainbow(amount).bg(amount.match(/([\d|\.|\-]+)/)[0].to_i > 0 ? :green : :red)
+end
+
 
 csv = CSV.new(`hledger --file import/all-years.journal --period 2024 print unknown | hledger -f - register -I -O csv`).read
 
@@ -65,15 +79,21 @@ end
 
 category_rules = Dir.glob(CONFIG["rules_directories"]).map {|path| File.read(path).split("\n") }.flatten.delete_if {|t| t == "if|account2"}
 other_accounts = File.read(CONFIG["accounts_list_file_path"]).split("\n") rescue []
-category_list = category_rules.map{|c| c.split("|")[1]}.concat(other_accounts).uniq!.sort rescue []
+category_list = category_rules.map{|c| c.split("|")[1]}.concat(other_accounts).uniq!.sort rescue other_accounts
 
-# white / cyan
+high_level_category_list = category_list.map{|c| c.split(":")[0..1].join(":")}.uniq
+high_level_category_colors = {}
+high_level_category_list.each_with_index {|c,i| high_level_category_colors[c] = COLORS[(i % COLORS.size)]}
+
+colored_category_list = category_list.map {|c| colorize_account(c,high_level_category_colors)}
+
+
 loop do
     txns_list = transactions.map.with_index do |t,i|
         [t[:date], 
-        Rainbow(t[:description]).bg(i % 2 == 0 ? :blue : :cyan),
+        colorize_description(t[:description],i),
         t[:account],
-        Rainbow(t[:amount]).bg(t[:amount].match(/([\d|\.|\-]+)/)[0].to_i > 0 ? :green : :red)
+        colorize_amount(t[:amount])
         ].join("|") + "\n"
     end
 
@@ -83,7 +103,7 @@ loop do
     txn = txn_raw.split("|")
     txn_full = transactions.select{|t| t[:date] == txn[0] and t[:description] == txn[1]}.first
 
-    category = `echo '#{category_list.join("\n")}' | sk --ansi --header="Choose category"  --tac --case=ignore`.strip.split("\n")[0]
+    category = `echo '#{colored_category_list.join("\n")}' | sk --ansi --header="Choose category"  --tac --case=ignore`.strip.split("\n")[0]
     break if category.nil?
 
     # IS THIS TXN SPECIFIC ? [Y]/N
