@@ -20,10 +20,10 @@ csv_headers = ["date,code,title,amount"]
 case bank_name
 when 'nubank'
   case account_name
-  when 'account'
+  when 'account', 'conta'
     csv = Nubank::Account.read_csv(input_path)
     output = Utils.write_csv(Nubank::Account.preprocess(csv))
-  when 'creditcard'
+  when 'creditcard', 'cartao'
     csv = Nubank::Creditcard.read_csv(input_path)
     output = Utils.write_csv(Nubank::Creditcard.preprocess(csv))
   end

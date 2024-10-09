@@ -18,16 +18,21 @@ def account_txn_match(txn)
     end
 end
 
+def journals_from_multiple_people?  
+    Dir["./import/*"].map{|p| File.directory?(p)}.count(true) > 1
+end
+
 def account_to_spec_rules_file account
     account_parsed = account.split(':')
-    case account_parsed[1]
-    when "Accounts"
-        "./import/#{CONFIG["person_name"]}/#{account_parsed[2].downcase}/account/#{account_parsed[2].downcase}-account-specific.rules"
-    when "Credit Cards"
-        "./import/#{CONFIG["person_name"]}/#{account_parsed[2].downcase}/creditcard/#{account_parsed[2].downcase}-creditcard-specific.rules"
+    if journals_from_multiple_people? 
+        person_name = account_parsed[2]
+        bank_name = account_parsed[3].downcase
     else
-        raise "Couldn't parse account specific rules path"
+        person_name = Dir["./import/*"].filter{|p| File.directory?(p)}.first.split("/").last
+        bank_name = account_parsed[2].downcase
     end
+    account_name = account_parsed[1].gsub(" ","").downcase.chop
+    "/import/#{person_name}/#{bank_name}/#{account_name}/#{bank_name}-#{account_name}-specific.rules"
 end
 
 def category_to_rules_file category
@@ -48,7 +53,7 @@ def parse_csv_line(l)
 end
 
 
-csv = CSV.new(`hledger --file import/#{CONFIG["person_name"]}/all-years.journal --period 2024 print unknown | hledger -f - register -I -O csv`).read
+csv = CSV.new(`hledger --file import/all-years.journal --period 2024 print unknown | hledger -f - register -I -O csv`).read
 
 transactions = []
 csv.each do |l|
@@ -57,10 +62,9 @@ csv.each do |l|
     transactions.push(line) unless line[:account].include?("unknown")
 end
 
-
-category_rules = Dir["./rules/*.psv","./rules/expenses/*.psv"].map {|path| File.read(path).split("\n") }.flatten.delete_if {|t| t == "if|account2"}
-other_accounts = File.read("./rules/other_accounts.txt").split("\n")
-category_list = category_rules.map{|c| c.split("|")[1]}.concat(other_accounts).uniq!.sort
+category_rules = Dir.glob(CONFIG["rules_directories"]).map {|path| File.read(path).split("\n") }.flatten.delete_if {|t| t == "if|account2"}
+other_accounts = File.read(CONFIG["accounts_list_file_path"]).split("\n") rescue []
+category_list = category_rules.map{|c| c.split("|")[1]}.concat(other_accounts).uniq!.sort rescue []
 
 loop do
     txns_list = transactions.map do |t| 
