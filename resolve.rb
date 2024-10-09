@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 require 'csv'
 require 'yaml'
+require 'rainbow'
 
 CONFIG = YAML.load_file('config.yml')
 
@@ -66,9 +67,14 @@ category_rules = Dir.glob(CONFIG["rules_directories"]).map {|path| File.read(pat
 other_accounts = File.read(CONFIG["accounts_list_file_path"]).split("\n") rescue []
 category_list = category_rules.map{|c| c.split("|")[1]}.concat(other_accounts).uniq!.sort rescue []
 
+# white / cyan
 loop do
-    txns_list = transactions.map do |t| 
-        [t[:date],t[:description],t[:account],t[:amount]].join("|") + "\n"
+    txns_list = transactions.map.with_index do |t,i|
+        [t[:date], 
+        Rainbow(t[:description]).bg(i % 2 == 0 ? :blue : :cyan),
+        t[:account],
+        Rainbow(t[:amount]).bg(t[:amount].match(/([\d|\.|\-]+)/)[0].to_i > 0 ? :green : :red)
+        ].join("|") + "\n"
     end
 
     break if transactions.empty?
