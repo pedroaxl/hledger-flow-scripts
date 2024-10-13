@@ -2,9 +2,11 @@
 require 'csv'
 require 'yaml'
 require 'rainbow'
+require 'i18n'
 
 CONFIG = YAML.load_file('config.yml')
 COLORS = [:red, :green, :yellow, :blue, :magenta, :cyan, :white] # removed :black
+I18n.available_locales = [:en]
 
 def cleanup_description(desc)
     if /(\d{1,2})\/\d{1,2}$/.match? desc
@@ -27,19 +29,25 @@ end
 def account_to_spec_rules_file account
     account_parsed = account.split(':')
     if journals_from_multiple_people? 
-        person_name = account_parsed[2]
-        bank_name = account_parsed[3].downcase
+        person_name = I18n.transliterate(account_parsed[1]).downcase
+        bank_name = I18n.transliterate(account_parsed[2]).downcase
+        account_name = I18n.transliterate(account_parsed[3].gsub(" ","")).downcase
     else
-        person_name = Dir["./import/*"].filter{|p| File.directory?(p)}.first.split("/").last
-        bank_name = account_parsed[2].downcase
+        person_name = I18n.transliterate(Dir["./import/*"].filter{|p| File.directory?(p)}.first.split("/").last)
+        bank_name = I18n.transliterate(account_parsed[2]).downcase
+        account_name = I18n.transliterate(account_parsed[1].gsub(" ","")).downcase
+        account_name.chop if account_name[-1] == "s" # remove plural
     end
-    account_name = account_parsed[1].gsub(" ","").downcase.chop
-    "/import/#{person_name}/#{bank_name}/#{account_name}/#{bank_name}-#{account_name}-specific.rules"
+    "./import/#{person_name}/#{bank_name}/#{account_name}/#{bank_name}-#{account_name}-specific.rules"
 end
 
 def category_to_rules_file category
     c = category.split(":")
-    "./rules/#{c[0].downcase}/#{c[1].downcase}.psv"
+    if journals_from_multiple_people?
+        "./rules/#{c[0].downcase}/#{I18n.transliterate(c[2]).downcase}.psv"
+    else
+        "./rules/#{c[0].downcase}/#{I18n.transliterate(c[1]).downcase}.psv"
+    end
 end
 
 def match_to_if_block(match_str, account)
@@ -58,17 +66,24 @@ def colorize_description(description, i)
     Rainbow(description).bg(i % 2 == 0 ? :blue : :cyan)
 end
 
-def colorize_account(account,high_level_category_colors)
-    puts high_level_category_colors[account.split(":")[0..1].join(":")].to_sym
-    Rainbow(account).bg(high_level_category_colors[account.split(":")[0..1].join(":")])
+def colorize_account(account,high_level_category_colors,category_key_range)
+    Rainbow(account).bg(high_level_category_colors[account.split(":")[category_key_range].join(":")])
 end
 
 def colorize_amount amount
     Rainbow(amount).bg(amount.match(/([\d|\.|\-]+)/)[0].to_i > 0 ? :green : :red)
 end
 
+def generate_colored_category_list category_list
+    category_key_range = journals_from_multiple_people? ? 0..2 : 0..1
+    high_level_list = category_list.map{|c| c.split(":")[category_key_range].join(":")}.uniq
+    high_level_category_colors = {}
+    high_level_list.each_with_index {|c,i| high_level_category_colors[c] = COLORS[(i % COLORS.size)]}
+    category_list.map {|c| colorize_account(c,high_level_category_colors, category_key_range)}
+end
 
-csv = CSV.new(`hledger --file import/all-years.journal --period 2024 print unknown | hledger -f - register -I -O csv`).read
+period_arg = CONFIG["starting_year"] ? ("--period '" + CONFIG["starting_year"] + "'") : ""
+csv = CSV.new(`hledger --file import/all-years.journal #{period_arg} print unknown | hledger -f - register -I -O csv`).read
 
 transactions = []
 csv.each do |l|
@@ -81,12 +96,7 @@ category_rules = Dir.glob(CONFIG["rules_directories"]).map {|path| File.read(pat
 other_accounts = File.read(CONFIG["accounts_list_file_path"]).split("\n") rescue []
 category_list = category_rules.map{|c| c.split("|")[1]}.concat(other_accounts).uniq!.sort rescue other_accounts
 
-high_level_category_list = category_list.map{|c| c.split(":")[0..1].join(":")}.uniq
-high_level_category_colors = {}
-high_level_category_list.each_with_index {|c,i| high_level_category_colors[c] = COLORS[(i % COLORS.size)]}
-
-colored_category_list = category_list.map {|c| colorize_account(c,high_level_category_colors)}
-
+colored_category_list = generate_colored_category_list(category_list)
 
 loop do
     txns_list = transactions.map.with_index do |t,i|
