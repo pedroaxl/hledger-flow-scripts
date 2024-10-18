@@ -13,7 +13,7 @@ def cleanup_description(desc)
         match = /(.*)(\d{1,2}\/\d{1,2})$/.match(desc)
         desc = match[1].strip
     end
-    desc.gsub("*",'\*')
+    desc.gsub("*",'\*').gsub("+","\+")
 end
 
 def account_txn_match(txn)
