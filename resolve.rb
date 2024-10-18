@@ -116,11 +116,13 @@ loop do
     category = `echo '#{colored_category_list.join("\n")}' | sk --ansi --header="Choose category"  --tac --case=ignore`.strip.split("\n")[0]
     break if category.nil?
 
-    # IS THIS TXN SPECIFIC ? [Y]/N
-    specific_txn = `echo 'YES\nNO' | sk --header="Is this category for a specific transaction?" --ansi --print-cmd -i`.strip 
+    # IS THIS TXN SPECIFIC ? [Y]/N 
+    question = "Do you want all transactions with #{txn_full[:description]} to be classified as #{category}?"
+    specific_txn = `echo 'NO\nYES' | sk --header="#{question}" --ansi --print-cmd -i`.strip 
     break if specific_txn.empty?
 
-    if specific_txn == "YES"
+
+    if specific_txn == "NO"
         comment = `echo '#{txn_raw}#{category}' | sk --header="Enter comment (prepend : to inhibit selection)" --ansi --print-cmd -i` 
         comment = comment.split("\n")[0]
         comment = nil if (comment == ":" or comment.empty?)
