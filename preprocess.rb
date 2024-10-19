@@ -2,6 +2,7 @@
 require_relative './src/utils.rb'
 require_relative './src/bradesco.rb'
 require_relative './src/nubank.rb'
+require_relative './src/ifood.rb'
 require_relative './src/itau.rb'
 require_relative './src/wise.rb'
 
@@ -31,6 +32,9 @@ when 'bradesco'
   csv = Bradesco::Creditcard.read_csv(input_path)
   bill_due_date = "#{input_path.split("/").last.split(".").first}-01"
   output = Utils.write_csv(Bradesco::Creditcard.preprocess(csv, bill_due_date))
+when 'ifood'
+  csv = Ifood::Account.read_csv(input_path)
+  output = Utils.write_csv(Ifood::Account.preprocess(csv)) 
 when 'itau'
   csv = Itau::Account.read_csv(input_path)
   output = Utils.write_csv(Itau::Account.preprocess(csv))
@@ -38,7 +42,7 @@ when 'wise'
   csv = Wise::Account.read_csv(input_path)
   output = Utils.write_csv(Wise::Account.preprocess(csv))
 else
-  raise "Don't know how to process this #{bank_name} #{bank_account}"
+  raise "Don't know how to process #{bank_name} #{account_name}"
 end
 
 File.open(output_path,"w") {|f| f.write(output)}
