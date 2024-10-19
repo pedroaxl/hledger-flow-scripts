@@ -2,6 +2,9 @@ require 'digest'
 require 'date'
 
 class Utils
+
+  # for preprocess
+
   def self.generate_transaction_id(bank_name, account_name, date, title, amount)
     combined_string = "#{bank_name}-#{account_name}-#{date}-#{title}-#{amount}"
     Digest::MD5.hexdigest(combined_string)
