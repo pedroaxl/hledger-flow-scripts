@@ -109,4 +109,12 @@ class Resolve
     transactions
   end
 
+  def self.match_to_specific_if_block(txn, account, comment)
+    "#{txn[:code]}|#{account}|#{comment}"
+  end
+
+  def self.match_to_if_block(match_str, account)
+    "#{match_str}|#{account}"
+  end
+
 end

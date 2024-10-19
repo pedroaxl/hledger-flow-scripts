@@ -6,19 +6,11 @@ require_relative 'src/resolve.rb'
 
 CONFIG = YAML.load_file('config.yml')
 
-def account_txn_match(txn)
-    if txn[:code]
-        txn[:code]
-    end
-end
-
-def match_to_if_block(match_str, account)
-    "#{match_str}|#{account}"
-end
-
-def match_to_specific_if_block(match_str, account, comment)
-    "#{match_str}|#{account}|#{comment}"
-end
+# def account_txn_match(txn)
+#     if txn[:code]
+#         txn[:code]
+#     end
+# end
 
 csv = Resolve::Hledger.get_unknown_transactions(CONFIG["starting_year"])
 transactions = Resolve.generate_transactions_from_csv(csv)
@@ -45,11 +37,12 @@ loop do
         comment = `echo '#{txn_raw}#{category}' | sk --header="Enter comment (prepend : to inhibit selection)" --ansi --print-cmd -i` 
         comment = comment.split("\n")[0]
         comment = nil if (comment == ":" or comment.empty?)
-        rule = match_to_specific_if_block(account_txn_match(txn_full),category, comment)
+        #rule = match_to_specific_if_block(account_txn_match(txn_full),category, comment)
+        rule = Resolve.match_to_specific_if_block(txn_full,category, comment)
         rules_file_path = Resolve.account_to_spec_rules_file(txn_full[:account])
         transactions.delete_if{|t| t[:code] == txn_full[:code]}
     else
-        rule = match_to_if_block(Resolve.cleanup_description(txn_full[:description]),category)
+        rule = self.match_to_if_block(Resolve.cleanup_description(txn_full[:description]),category)
         rules_file_path = Resolve.category_to_rules_file(category)
         transactions.delete_if{|t| t[:description] == txn_full[:description]}
     end
