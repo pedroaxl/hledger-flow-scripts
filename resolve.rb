@@ -42,7 +42,7 @@ loop do
         rules_file_path = Resolve.account_to_spec_rules_file(txn_full[:account])
         transactions.delete_if{|t| t[:code] == txn_full[:code]}
     else
-        rule = self.match_to_if_block(Resolve.cleanup_description(txn_full[:description]),category)
+        rule = Resolve.match_to_if_block(Resolve.cleanup_description(txn_full[:description]),category)
         rules_file_path = Resolve.category_to_rules_file(category)
         transactions.delete_if{|t| t[:description] == txn_full[:description]}
     end
