@@ -1,6 +1,7 @@
 require 'i18n'
 require 'rainbow'
 require 'csv'
+require 'json'
 
 
 I18n.available_locales = [:en]
@@ -39,11 +40,7 @@ class Resolve
   def self.category_to_rules_file category
     c = category.split(":")
     if Resolve.journals_from_multiple_people?
-      if c.size == 3
-        "./rules/#{c[0].downcase}.psv"
-      else
-        "./rules/#{c[0].downcase}/#{I18n.transliterate(c[2]).downcase}.psv"
-      end
+      "./rules/#{I18n.transliterate(c[1]).downcase}/#{c[0].downcase}.psv"
     else
       if c.size == 2
         "./rules/#{c[0].downcase}.psv"
@@ -96,7 +93,7 @@ class Resolve
   end
 
   def self.parse_csv_line(l)
-    {"index": l[0], "date": l[1], "code":l[2], "description":l[3], "account": l[4], "amount":l[5] }
+    {"index": l[0], "date": l[1], "code":l[2], "description":l[3], "account": l[4], "amount":l[5], "type": (l[5].gsub("R$","").to_f > 0 ? :credit : :debit) }
   end
 
   def self.generate_transactions_from_csv csv
@@ -115,6 +112,41 @@ class Resolve
 
   def self.match_to_if_block(match_str, account)
     "#{match_str}|#{account}"
+  end
+
+  # batch processing methods
+
+  class Batch
+    def self.group_transactions_by_date transactions
+      txns_grouped = transactions.group_by {|t| [t[:date], t[:account], t[:type]]}
+      txns_grouped.map do |date_account_type, txns|
+        {"date":date_account_type[0], "account": date_account_type[1], "type": date_account_type[2], "count": txns.count, "amount": txns.sum{|t| t[:amount].gsub("R$","").to_f}}
+      end
+    end
+
+    def self.generate_grouped_transactions_list_for_loop transactions
+      transactions.filter{|t| t[:count] > 5}.map do |t|
+        [t[:date],t[:account],t[:type], "count: "+ t[:count].to_s, "amount: " + t[:amount].to_s].join("|") + "\n"
+      end
+    end
+
+    def self.filter_transactions_from_date_type transactions, query_string
+      q = query_string.split("|")
+      transactions.filter{|t| t[:date] == q[0] and t[:account] == q[1] and t[:type] == q[2].to_sym}
+    end
+
+    def self.summary_message query_string, category
+      q = query_string.split("|")
+      [ "\nAre you sure?\n\n",
+      "######## SUMMARY #########\n",
+      "Date: #{q[0]}\n",
+      "Account: #{q[1]}\n",
+      "Type: #{q[2]}\n",
+      (q[3].capitalize + "\n"),
+      q[4].capitalize.strip + "\n",
+      "Category: #{category.strip}\n"
+    ].reverse
+    end
   end
 
 end

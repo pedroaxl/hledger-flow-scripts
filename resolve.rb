@@ -4,7 +4,7 @@ require 'rainbow'
 
 require_relative 'src/resolve.rb'
 
-CONFIG = YAML.load_file('config.yml')
+CONFIG = YAML.load_file('config.yml') rescue {}
 
 # def account_txn_match(txn)
 #     if txn[:code]
@@ -40,10 +40,12 @@ loop do
         #rule = match_to_specific_if_block(account_txn_match(txn_full),category, comment)
         rule = Resolve.match_to_specific_if_block(txn_full,category, comment)
         rules_file_path = Resolve.account_to_spec_rules_file(txn_full[:account])
+        puts rules_file_path
         transactions.delete_if{|t| t[:code] == txn_full[:code]}
     else
         rule = Resolve.match_to_if_block(Resolve.cleanup_description(txn_full[:description]),category)
         rules_file_path = Resolve.category_to_rules_file(category)
+        puts rules_file_path
         transactions.delete_if{|t| t[:description] == txn_full[:description]}
     end
     File.open(rules_file_path, "a+") {|f| f.write("\n"+rule)}
