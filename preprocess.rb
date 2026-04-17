@@ -30,7 +30,8 @@ when 'nubank'
   end
 when 'bradesco'
   csv = Bradesco::Creditcard.read_csv(input_path)
-  bill_due_date = "#{input_path.split("/").last.split(".").first}-01"
+  bill_month = input_path.split("/").last.split(".").first
+  bill_due_date = bill_month < "2025-09" ? "#{bill_month}-01" : "#{bill_month}-20"
   output = Utils.write_csv(Bradesco::Creditcard.preprocess(csv, bill_due_date))
 when 'ifood'
   csv = Ifood::Account.read_csv(input_path)

@@ -10,10 +10,15 @@ class Utils
     Digest::MD5.hexdigest(combined_string)
   end
   def self.convert_date_without_year(txn_date, bill_due_date)
-    if Date.parse("#{txn_date}/#{Date.today.year}") < Date.parse(bill_due_date)
-      Date.parse("#{txn_date}/#{Date.today.year}").to_s
-    else # if in the future means it was past year
-      Date.parse("#{txn_date}/#{Date.today.year-1}").to_s
+    bill_date = Date.parse(bill_due_date)
+    bill_year = bill_date.year
+    txn_with_year = Date.parse("#{txn_date}/#{bill_year}")
+    # If transaction date (with bill year) is before bill_due_date, use bill year
+    # If transaction date (with bill year) is on or after bill_due_date, use previous year
+    if txn_with_year < bill_date
+      txn_with_year.to_s
+    else # transaction date is on or after bill_due_date, so it was from previous year
+      Date.parse("#{txn_date}/#{bill_year-1}").to_s
     end
   end
   def self.titleize(str)

@@ -18,7 +18,8 @@ class Resolve
   end
 
   def self.journals_from_multiple_people?  
-    Dir["./import/*"].map{|p| File.directory?(p)}.count(true) > 1
+    project_root = File.expand_path(File.join(File.dirname(__FILE__), '..', '..'))
+    Dir[File.join(project_root, 'import', '*')].map{|p| File.directory?(p)}.count(true) > 1
   end
 
   def self.account_to_spec_rules_file account
@@ -28,12 +29,14 @@ class Resolve
         person_name = I18n.transliterate(account_parsed[1]).downcase
         account_name = I18n.transliterate(account_parsed[3].gsub(" ","")).downcase
     else
-        person_name = I18n.transliterate(Dir["./import/*"].filter{|p| File.directory?(p)}.first.split("/").last)
+        # Encontrar diretório da pessoa procurando a partir da raiz do projeto
+        project_root = File.expand_path(File.join(File.dirname(__FILE__), '..', '..'))
+        person_name = I18n.transliterate(Dir[File.join(project_root, 'import', '*')].filter{|p| File.directory?(p)}.first.split("/").last)
         account_name = I18n.transliterate(account_parsed[1].gsub(" ","")).downcase
         account_name.chop! if account_name[-1] == "s" # remove plural
     end
-    "./import/#{person_name}/#{bank_name}/#{account_name}/#{bank_name}-#{account_name}-specific.rules"
-
+    project_root = File.expand_path(File.join(File.dirname(__FILE__), '..', '..'))
+    File.join(project_root, "import", person_name, bank_name, account_name, "#{bank_name}-#{account_name}-specific.rules")
   end
 
   def self.category_to_rules_file category
@@ -110,7 +113,8 @@ class Resolve
   end
 
   def self.match_to_specific_if_block(txn, account, comment)
-    "#{txn[:code]}|#{account}|#{comment}"
+    comment_str = comment.nil? ? "" : comment
+    "#{txn[:code]}|#{account}|#{comment_str}"
   end
 
   def self.match_to_if_block(match_str, account)
