@@ -113,6 +113,38 @@ describe Nubank::Creditcard do
         processed_csv = [["date", "code", "title", "amount"],["2024-09-30","8b1cde34a6bbae0deda347b0a7f93e48", "Mp *Doacoes", "150.00"], ["2024-09-29","e01bec3c901e6a64cb4e16135a2fccbd", "Yidstudio Cafe", "9.00"], ["2024-09-29","b7adc8c2811736fc177dab0eb7933541", "Adm Park", "40.00"]]
         expect(Nubank::Creditcard.preprocess(raw_csv)).to eql(processed_csv)
     end
+    it "should detect the quoted comma-decimal value format" do
+        old_raw = "date,title,amount\n2026-04-30,Jim.Com* Danesino,52.00\n"
+        new_raw = "date,title,amount\n2026-05-31,Dl*Uberrides,\"24,76\"\n"
+        expect(Nubank::Creditcard.new_value_format?(old_raw)).to eql(false)
+        expect(Nubank::Creditcard.new_value_format?(new_raw)).to eql(true)
+    end
+    it "should normalize brazilian-formatted amounts" do
+        expect(Nubank::Creditcard.normalize_amount("24,76")).to eql("24.76")
+        expect(Nubank::Creditcard.normalize_amount("1.333,07")).to eql("1333.07")
+        expect(Nubank::Creditcard.normalize_amount("- 12.522,57")).to eql("-12522.57")
+        expect(Nubank::Creditcard.normalize_amount("52.00")).to eql("52.00")
+    end
+    it "should read and preprocess the quoted comma-decimal value format" do
+        require 'tempfile'
+        file = Tempfile.new(["nubank", ".csv"])
+        file.write(<<~CSV)
+          date,title,amount
+          2026-05-31,Dl*Uberrides,"24,76"
+          2026-05-08,Pagamento recebido,"- 12.522,57"
+          2026-05-07,"Estorno de ""Aliexpress"" (AliExpress)","1.333,07"
+        CSV
+        file.close
+        csv = Nubank::Creditcard.read_csv(file.path)
+        processed = Nubank::Creditcard.preprocess(csv)
+        expect(processed[0]).to eql(["date","code","title","amount"])
+        expect(processed[1][2]).to eql("Dl*Uberrides")
+        expect(processed[1][3]).to eql("24.76")
+        expect(processed[2][3]).to eql("-12522.57")
+        expect(processed[3][2]).to eql("Estorno de Aliexpress (AliExpress)")
+        expect(processed[3][3]).to eql("1333.07")
+        file.unlink
+    end
 end
 
 describe Wise::Account do
