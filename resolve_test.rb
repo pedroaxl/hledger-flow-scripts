@@ -3,6 +3,9 @@ require_relative './src/resolve.rb'
 require 'rainbow'
 
 describe Resolve do
+    let(:project_root) { File.expand_path('..', __dir__) }
+    let(:import_glob) { File.join(project_root, 'import', '*') }
+
     it "cleans up the description" do
         expect(Resolve.cleanup_description("Something/else")).to eq('Something\/else')
         expect(Resolve.cleanup_description("Something +1234")).to eq('Something \+1234')
@@ -14,7 +17,7 @@ describe Resolve do
     end 
     context "journals from multiple people" do
         before do 
-            allow(Dir).to receive(:[]).with('./import/*').and_return(['/pedro','/livia'])
+            allow(Dir).to receive(:[]).with(import_glob).and_return(['/pedro','/livia'])
             allow(File).to receive(:directory?).with('/pedro').and_return(true)
             allow(File).to receive(:directory?).with('/livia').and_return(true)
         end
@@ -22,8 +25,8 @@ describe Resolve do
             expect(Resolve.journals_from_multiple_people?).to be true
         end
         it "should convert account to rules file" do
-            expect(Resolve.account_to_spec_rules_file("Liabilities:Lívia:Nubank:Cartão")).to eql("./import/livia/nubank/cartao/nubank-cartao-specific.rules")
-            expect(Resolve.account_to_spec_rules_file("Assets:Lívia:Nubank:Conta")).to eql("./import/livia/nubank/conta/nubank-conta-specific.rules")
+            expect(Resolve.account_to_spec_rules_file("Liabilities:Lívia:Nubank:Cartão")).to eql(File.join(project_root, "import/livia/nubank/cartao/nubank-cartao-specific.rules"))
+            expect(Resolve.account_to_spec_rules_file("Assets:Lívia:Nubank:Conta")).to eql(File.join(project_root, "import/livia/nubank/conta/nubank-conta-specific.rules"))
         end
         it "should convert expense account to rules file" do
             expect(Resolve.category_to_rules_file("Expenses:Lívia:Alimentação:Café")).to eql("./rules/livia/expenses.psv")
@@ -35,15 +38,15 @@ describe Resolve do
     end
     context "journals from one person" do
         before do 
-            allow(Dir).to receive(:[]).with('./import/*').and_return(['/pedro'])
+            allow(Dir).to receive(:[]).with(import_glob).and_return(['/pedro'])
             allow(File).to receive(:directory?).with('/pedro').and_return(true)
         end
         it "journals from multiepl people should return false" do
             expect(Resolve.journals_from_multiple_people?).to be false
         end
         it "should convert account to specific rules file" do
-            expect(Resolve.account_to_spec_rules_file("Liabilities:Credit Cards:Nubank:Mastercard")).to eql("./import/pedro/nubank/creditcard/nubank-creditcard-specific.rules")
-            expect(Resolve.account_to_spec_rules_file("Assets:Accounts:Nubank")).to eql("./import/pedro/nubank/account/nubank-account-specific.rules")
+            expect(Resolve.account_to_spec_rules_file("Liabilities:Credit Cards:Nubank:Mastercard")).to eql(File.join(project_root, "import/pedro/nubank/creditcard/nubank-creditcard-specific.rules"))
+            expect(Resolve.account_to_spec_rules_file("Assets:Accounts:Nubank")).to eql(File.join(project_root, "import/pedro/nubank/account/nubank-account-specific.rules"))
         end
         it "should convert expense account to rules file" do
             expect(Resolve.category_to_rules_file("Expenses:Home:Rent")).to eql("./rules/expenses/home.psv")

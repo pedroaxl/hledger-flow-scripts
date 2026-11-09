@@ -42,7 +42,7 @@ describe Bradesco::Creditcard do
         expect(Bradesco::Creditcard.filter_txn_lines(csv)).to eq(["22/11;PAYPAL *HTCLICK 8/12;0,00;815,00", "30/11;AGENCIA DE VIAGENS 8/10;0,00;3844,93","20/08;ANUIDADE DIFERENCIADA 1/12;0,00;154,00","09/08;CUSTO TRANS. EXTERIOR-IOF ;0,00;30,48"])
     end
     it "should convert transaction date" do
-        expect(Bradesco::Creditcard.convert_date("05/08","2023-08-01")).to eql("2023-08-05")
+        expect(Bradesco::Creditcard.convert_date("05/08","2023-09-01")).to eql("2023-08-05")
     end
     it "should convert amount" do
         expect(Bradesco::Creditcard.convert_amount("10,00")).to eql("10.00")
