@@ -213,6 +213,23 @@ describe Resolve do
       around {|example| Dir.mktmpdir {|d| @dir = d; example.run}}
       let(:path) { File.join(@dir, "regras.psv") }
 
+      it "appends several rules and undoes them together" do
+        File.write(path, "if|account2\nA|B\n")
+        other = File.join(@dir, "outra.psv")
+        File.write(other, "X|Y")
+        appended = Resolve::RuleFile.append_all([[path, "c1|Z|"], [other, "c2|Z|"], [path, "c3|Z|"]])
+        expect(File.read(path)).to eql("if|account2\nA|B\nc1|Z|\nc3|Z|")
+        expect(File.read(other)).to eql("X|Y\nc2|Z|")
+        Resolve::RuleFile.undo_all(appended)
+        expect(File.read(path)).to eql("if|account2\nA|B\n")
+        expect(File.read(other)).to eql("X|Y")
+      end
+      it "keeps nothing when one of several rules fails" do
+        File.write(path, "A|B")
+        missing = File.join(@dir, "nao-existe", "regras.psv")
+        expect { Resolve::RuleFile.append_all([[path, "c1|Z|"], [missing, "c2|Z|"]]) }.to raise_error(Errno::ENOENT)
+        expect(File.read(path)).to eql("A|B")
+      end
       it "appends and undoes a rule, keeping earlier content" do
         File.write(path, "if|account2\nA|B")
         entry = Resolve::RuleFile.append(path, "Çafé|X")
@@ -257,6 +274,40 @@ describe Resolve do
       end
       it "keeps the general rule as default otherwise" do
         expect(Resolve::Screen.category_keys_hint(group.merge(ambiguous: false, siblings: group[:transactions]))).to start_with("Enter: regra geral (1 transação)")
+      end
+      it "offers applying to the whole group without a future rule" do
+        header = Resolve::Screen.transaction_picker_header("Expenses:Others:Family", group.merge(transactions: group[:transactions] * 4))
+        expect(header).to start_with("Aplicar Expenses:Others:Family a qual transação?\n")
+        expect(header).to include("Ctrl-A: todas as 4 daqui, sem regra para as futuras")
+      end
+      it "has no ambiguity hint for regular rows" do
+        expect(Resolve::Screen.ambiguity_hint(group.merge(ambiguous: false), {})).to be_nil
+      end
+      it "explains why a transfer applies to a single transaction" do
+        transfer = group.merge(description: "Transferência enviada pelo Pix - Lívia", ambiguous: true)
+        expect(Resolve::Screen.ambiguity_hint(transfer, {})).to eql("• Enter vale só para esta transação: cada transferência pode ter um motivo")
+      end
+      it "names the categories a varying description already had" do
+        varying = group.merge(ambiguous: true)
+        categories = {"claro" => ["Expenses:Home:Phone", "Expenses:Others:Family"]}
+        expect(Resolve::Screen.ambiguity_hint(varying, categories)).to eql("• Enter vale só para esta transação: já teve 2 categorias (Home:Phone, Others:Family)")
+      end
+      it "caps how many categories the hint lists" do
+        varying = group.merge(ambiguous: true)
+        categories = {"claro" => %w[A:B:C A:B:D A:B:E A:B:F A:B:G]}
+        expect(Resolve::Screen.ambiguity_hint(varying, categories)).to end_with("já teve 5 categorias (B:C, B:D, B:E e mais 2)")
+      end
+      it "opens the preview with the hint when there is one" do
+        expect(Resolve::Screen.preview(group, [], "• dica")).to start_with("• dica\n\nNesta classificação")
+        expect(Resolve::Screen.preview(group, [])).to start_with("Nesta classificação")
+      end
+      it "merges installments and orders categories by use" do
+        history = [
+          {description: "Loja 1/8", category: "X", count: 1},
+          {description: "Loja 2/8", category: "Y", count: 2},
+          {description: "loja", category: "Y", count: 1}
+        ]
+        expect(Resolve::Hledger.categories_by_key(history)).to eql({"loja" => ["Y", "X"]})
       end
       it "puts suggested categories first, keeping real indexes" do
         rows = Resolve::Screen.category_rows(["A", "B", "C"], ["A", "B", "C"], [["C", 8]])

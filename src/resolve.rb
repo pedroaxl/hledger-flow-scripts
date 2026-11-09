@@ -192,6 +192,20 @@ class Resolve
       {path: path, text: text, created: created}
     end
 
+    # Grava várias regras como uma só operação: se uma falhar, nenhuma fica.
+    def self.append_all(rules)
+      appended = []
+      rules.each {|path, rule| appended << append(path, rule)}
+      appended
+    rescue
+      undo_all(appended)
+      raise
+    end
+
+    def self.undo_all(entries)
+      entries.reverse_each {|entry| undo(entry)}
+    end
+
     # Só desfaz se a regra ainda for o fim do arquivo; nunca apaga outra edição.
     def self.undo(entry)
       content = File.binread(entry[:path])
@@ -204,6 +218,8 @@ class Resolve
   class Screen
     DESCRIPTION_WIDTH = 44
     AMOUNT_WIDTH = 15
+    AMBIGUITY_CATEGORIES_SHOWN = 3
+    AMBIGUOUS_LEGEND = "• Enter vale só para a transação da linha (a categoria pode variar)"
 
     def self.count_label(n)
       n == 1 ? "1 transação" : "#{n} transações"
@@ -271,8 +287,27 @@ class Resolve
       end
     end
 
-    def self.preview(group, similar_entries)
-      lines = ["Nesta classificação"]
+    def self.transaction_picker_header(category, group)
+      ["Aplicar #{category} a qual transação?",
+       "Enter: só a selecionada · Ctrl-A: todas as #{group[:transactions].size} daqui, sem regra para as futuras · Esc: voltar"].join("\n")
+    end
+
+    def self.ambiguity_hint(group, categories_by_key)
+      return nil unless group[:ambiguous]
+      reason = if group[:description].match?(TRANSFER_DESCRIPTION)
+        "cada transferência pode ter um motivo"
+      else
+        categories = categories_by_key.fetch(Resolve.description_key(group[:description]), [])
+        shown = categories.first(AMBIGUITY_CATEGORIES_SHOWN).map {|c| short_account(c)}
+        extra = categories.size - shown.size
+        "já teve #{categories.size} categorias (#{shown.join(", ")}#{extra > 0 ? " e mais #{extra}" : ""})"
+      end
+      "• Enter vale só para esta transação: #{reason}"
+    end
+
+    def self.preview(group, similar_entries, hint = nil)
+      lines = hint ? [hint, ""] : []
+      lines << "Nesta classificação"
       group[:transactions].each do |t|
         lines << "  #{t[:date]}  #{amount_text([t]).first.rjust(AMOUNT_WIDTH)}  #{t[:description]}  (#{short_account(t[:account])})"
       end
@@ -326,8 +361,14 @@ class Resolve
 
     # Descrições que já receberam mais de uma categoria
     def self.ambiguous_keys history
-      by_key = history.group_by {|e| Resolve.description_key(e[:description])}
-      by_key.select {|_, entries| entries.map {|e| e[:category]}.uniq.size > 1}.keys.to_set
+      categories_by_key(history).select {|_, categories| categories.size > 1}.keys.to_set
+    end
+
+    # Categorias já usadas em cada descrição, da mais frequente para a menos frequente
+    def self.categories_by_key history
+      history.group_by {|e| Resolve.description_key(e[:description])}.transform_values do |entries|
+        entries.group_by {|e| e[:category]}.sort_by {|_, same| -same.sum {|e| e[:count]}}.map(&:first)
+      end
     end
   end
 
