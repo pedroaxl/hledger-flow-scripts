@@ -26,9 +26,11 @@ describe Resolve do
             expect(Resolve.account_to_spec_rules_file("Assets:Lívia:Nubank:Conta")).to eql("./import/livia/nubank/conta/nubank-conta-specific.rules")
         end
         it "should convert expense account to rules file" do
-            expect(Resolve.category_to_rules_file("Expenses:Lívia:Alimentação:Café")).to eql("./rules/expenses/alimentacao.psv")
-            expect(Resolve.category_to_rules_file("Income:Lívia:Salário")).to eql("./rules/income.psv")
-
+            expect(Resolve.category_to_rules_file("Expenses:Lívia:Alimentação:Café")).to eql("./rules/livia/expenses.psv")
+            expect(Resolve.category_to_rules_file("Income:Lívia:Salário")).to eql("./rules/livia/income.psv")
+            expect(Resolve.category_to_rules_file("Temporary:Lívia:Payments")).to eql("./rules/livia/temporary.psv")
+            expect(Resolve.category_to_rules_file("Expenses:Empresa:Alimentação:Café")).to eql("./rules/empresa/expenses.psv")
+            expect(Resolve.category_to_rules_file("Income:Empresa:Salário")).to eql("./rules/empresa/income.psv")
         end
     end
     context "journals from one person" do
@@ -64,5 +66,11 @@ describe Resolve do
         expected_colorized_categories = [Rainbow("A").bg(:red),Rainbow("B").bg(:green),Rainbow("C").bg(:yellow),Rainbow("D").bg(:blue),Rainbow("E").bg(:magenta),Rainbow("F").bg(:cyan),Rainbow("G").bg(:white),Rainbow("H").bg(:red)]
         expect(Resolve::Colorize.generate_category_list(category_list)).to eql(expected_colorized_categories)
       end
+    end
+
+    describe Resolve::Hledger do
+    end
+
+    describe Resolve::Batch do
     end
 end

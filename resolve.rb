@@ -4,7 +4,7 @@ require 'rainbow'
 
 require_relative 'src/resolve.rb'
 
-CONFIG = YAML.load_file('config.yml')
+CONFIG = YAML.load_file('config.yml') rescue {}
 
 csv = Resolve::Hledger.get_unknown_transactions(CONFIG["starting_year"])
 transactions = Resolve.generate_transactions_from_csv(csv)
