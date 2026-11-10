@@ -53,10 +53,16 @@ class Bradesco
       /(\d{1,2})\/\d{1,2}$/.match? title
     end
 
-    def self.adjusted_installment_date txn
+    # Em compras parceladas o Bradesco repete a data da compra em todas as faturas,
+    # então a parcela N é deslocada N-1 meses. Algumas cobranças (ex.: anuidade) já
+    # vêm com a data do mês; deslocá-las passaria do vencimento da própria fatura,
+    # o que é impossível, e nesse caso a data da fatura é mantida.
+    def self.adjusted_installment_date txn, bill_due_date = nil
       installment_number = /(\d{1,2})\/\d{1,2}$/.match(txn[2])[1].to_i
       raise "Couldn't parse installment number for transaction" + txn.inspect if installment_number == 0
-      (Date.parse(txn[0]) >>(installment_number - 1)).to_s
+      shifted = Date.parse(txn[0]) >> (installment_number - 1)
+      return txn[0] if bill_due_date && shifted >= Date.parse(bill_due_date)
+      shifted.to_s
     end
 
     def self.cleanup_installment_title(title)
@@ -75,7 +81,7 @@ class Bradesco
       base_csv.delete_if {|l| l[2] == "Pag Boleto Bancario"}
       base_csv.each do |l|
         if is_installment?(l[2])
-          l[0] = adjusted_installment_date(l) 
+          l[0] = adjusted_installment_date(l, bill_due_date)
           l[2] = cleanup_installment_title(l[2])
         end
         l[1] = generate_transaction_id(l[0],l[2],l[3])

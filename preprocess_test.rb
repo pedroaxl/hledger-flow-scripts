@@ -58,6 +58,19 @@ describe Bradesco::Creditcard do
         expect(Bradesco::Creditcard.adjusted_installment_date(["2024-01-05",nil,"Something 2/12"])).to eql("2024-02-05")
         expect(Bradesco::Creditcard.adjusted_installment_date(["2024-06-05",nil,"Something 12/12"])).to eql("2025-05-05")
     end
+    it "should keep shifting purchases that stay before the bill due date" do
+        expect(Bradesco::Creditcard.adjusted_installment_date(["2026-03-27",nil,"Centauro 7/8"], "2026-10-20")).to eql("2026-09-27")
+        expect(Bradesco::Creditcard.adjusted_installment_date(["2026-03-10",nil,"Centauro 7/8"], "2026-09-20")).to eql("2026-09-10")
+    end
+    it "should keep the bill date when shifting would pass the due date" do
+        expect(Bradesco::Creditcard.adjusted_installment_date(["2026-03-09",nil,"Anuidade Diferenciada 7/12"], "2026-03-20")).to eql("2026-03-09")
+        expect(Bradesco::Creditcard.adjusted_installment_date(["2024-09-18",nil,"Anuidade Diferenciada 2/12"], "2024-10-01")).to eql("2024-09-18")
+    end
+    it "should date each annual fee installment in its own bill" do
+        raw_csv = ["PEDRO K AXELRUD ;;; 1770","Data;Hist�rico;Valor(US$);Valor(R$);","09/03;ANUIDADE DIFERENCIADA 7/12;0,00;160,00","10/03;CENTAURO CE147 1/8;0,00;149,99"]
+        dates = Bradesco::Creditcard.preprocess(raw_csv, "2026-03-20").drop(1).map(&:first)
+        expect(dates).to eql(["2026-03-09", "2026-03-10"])
+    end
     it "should cleantup installment title" do
         expect(Bradesco::Creditcard.cleanup_installment_title("PARC=102 SOMETHING WEIRD")).to eql("Something Weird")
         expect(Bradesco::Creditcard.cleanup_installment_title("Parc=102 SOMETHING WEIRD")).to eql("Something Weird")
